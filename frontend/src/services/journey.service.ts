@@ -1,4 +1,5 @@
 import api from './api';
+import { GeoapifyService } from './geoapify.service';
 import type { Stop, Route, JourneyCandidate, JourneyPlanRequest, StopTiming, FavoriteBus } from '../types';
 
 // ============================================================================
@@ -207,14 +208,14 @@ export const journeyService = {
       // Backend not yet restarted in C or offline; use pure dynamic client-side engine
     }
 
-    return this.calculateJourneyCandidatesLocal(request);
+    return await this.calculateJourneyCandidatesLocal(request);
   },
 
   /**
    * Pure dynamic time-based journey engine.
    * Runs right in the browser using the EXACT wall-clock time when the user opens it!
    */
-  calculateJourneyCandidatesLocal(request: JourneyPlanRequest): JourneyCandidate[] {
+  async calculateJourneyCandidatesLocal(request: JourneyPlanRequest): Promise<JourneyCandidate[]> {
     const { start_stop_id, end_stop_id, passenger_lat, passenger_lng } = request;
     const now = new Date();
 
@@ -239,10 +240,17 @@ export const journeyService = {
     const pLat = passenger_lat || startStop.latitude + 0.002;
     const pLng = passenger_lng || startStop.longitude + 0.002;
 
-    const walkingDistKm = calculateDistanceKm(pLat, pLng, startStop.latitude, startStop.longitude);
-    const walkingMeters = Math.round(walkingDistKm * 1000);
-    // Average walking speed: 80 meters/min (~4.8 km/h)
-    const walkingMinutes = Math.max(1, Math.ceil(walkingMeters / 80));
+    let walkingMeters = 250;
+    let walkingMinutes = 3;
+    try {
+      const walkInfo = await GeoapifyService.getWalkingRoute(pLat, pLng, startStop.latitude, startStop.longitude);
+      walkingMeters = walkInfo.distanceMeters;
+      walkingMinutes = walkInfo.durationMinutes;
+    } catch {
+      const walkingDistKm = calculateDistanceKm(pLat, pLng, startStop.latitude, startStop.longitude);
+      walkingMeters = Math.round(walkingDistKm * 1000);
+      walkingMinutes = Math.max(1, Math.ceil(walkingMeters / 80));
+    }
 
     const candidates: JourneyCandidate[] = [];
 

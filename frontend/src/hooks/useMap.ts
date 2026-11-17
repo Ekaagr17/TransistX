@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
+import { GeoapifyService } from '../services/geoapify.service';
 
 interface UseMapOptions {
   center?: [number, number]; // [lng, lat]
@@ -17,29 +18,29 @@ export const useMap = (
   useEffect(() => {
     if (!containerRef.current || mapInstanceRef.current) return;
 
-    // Dark MapLibre vector style with dark basemap
+    const apiKey = GeoapifyService.getApiKey();
+
+    // Dark MapLibre vector style with Geoapify / CartoDB dark basemap
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: {
         version: 8,
         sources: {
-          'carto-dark': {
+          'dark-tiles': {
             type: 'raster',
             tiles: [
+              `https://maps.geoapify.com/v1/tile/dark-matter-dark-grey/{z}/{x}/{y}.png?apiKey=${apiKey}`,
               'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
             ],
             tileSize: 256,
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+            attribution: '&copy; <a href="https://www.geoapify.com/">Geoapify</a> &copy; <a href="https://carto.com/">CARTO</a>',
           },
         },
         layers: [
           {
-            id: 'carto-dark-layer',
+            id: 'dark-tiles-layer',
             type: 'raster',
-            source: 'carto-dark',
+            source: 'dark-tiles',
             minzoom: 0,
             maxzoom: 20,
           },
