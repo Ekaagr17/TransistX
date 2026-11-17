@@ -1,0 +1,146 @@
+// optional - Self-contained std::optional implementation for C++14/C++17
+#pragma once
+#ifndef TRANSITX_OPTIONAL_COMPAT_HPP
+#define TRANSITX_OPTIONAL_COMPAT_HPP
+
+#include <stdexcept>
+#include <utility>
+#include <type_traits>
+
+namespace std {
+
+struct nullopt_t {
+    explicit constexpr nullopt_t(int) {}
+};
+constexpr nullopt_t nullopt{0};
+
+class bad_optional_access : public std::logic_error {
+public:
+    bad_optional_access() : std::logic_error("bad optional access") {}
+    explicit bad_optional_access(const char* what_arg) : std::logic_error(what_arg) {}
+};
+
+template<typename T>
+class optional {
+private:
+    bool has_val_ = false;
+    typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_;
+
+    T* ptr() { return reinterpret_cast<T*>(&storage_); }
+    const T* ptr() const { return reinterpret_cast<const T*>(&storage_); }
+
+    void destroy() {
+        if (has_val_) {
+            ptr()->~T();
+            has_val_ = false;
+        }
+    }
+
+public:
+    using value_type = T;
+
+    constexpr optional() noexcept : has_val_(false) {}
+    constexpr optional(nullopt_t) noexcept : has_val_(false) {}
+
+    optional(const T& val) : has_val_(true) {
+        new (&storage_) T(val);
+    }
+
+    optional(T&& val) : has_val_(true) {
+        new (&storage_) T(std::move(val));
+    }
+
+    optional(const optional& other) : has_val_(other.has_val_) {
+        if (has_val_) {
+            new (&storage_) T(*other.ptr());
+        }
+    }
+
+    optional(optional&& other) noexcept : has_val_(other.has_val_) {
+        if (has_val_) {
+            new (&storage_) T(std::move(*other.ptr()));
+            other.destroy();
+        }
+    }
+
+    ~optional() {
+        destroy();
+    }
+
+    optional& operator=(nullopt_t) noexcept {
+        destroy();
+        return *this;
+    }
+
+    optional& operator=(const optional& other) {
+        if (this != &other) {
+            destroy();
+            if (other.has_val_) {
+                new (&storage_) T(*other.ptr());
+                has_val_ = true;
+            }
+        }
+        return *this;
+    }
+
+    optional& operator=(optional&& other) noexcept {
+        if (this != &other) {
+            destroy();
+            if (other.has_val_) {
+                new (&storage_) T(std::move(*other.ptr()));
+                has_val_ = true;
+                other.destroy();
+            }
+        }
+        return *this;
+    }
+
+    optional& operator=(const T& val) {
+        destroy();
+        new (&storage_) T(val);
+        has_val_ = true;
+        return *this;
+    }
+
+    optional& operator=(T&& val) {
+        destroy();
+        new (&storage_) T(std::move(val));
+        has_val_ = true;
+        return *this;
+    }
+
+    constexpr bool has_value() const noexcept { return has_val_; }
+    constexpr explicit operator bool() const noexcept { return has_val_; }
+
+    T& value() {
+        if (!has_val_) throw bad_optional_access();
+        return *ptr();
+    }
+
+    const T& value() const {
+        if (!has_val_) throw bad_optional_access();
+        return *ptr();
+    }
+
+    template<typename U>
+    T value_or(U&& default_value) const {
+        return has_val_ ? *ptr() : static_cast<T>(std::forward<U>(default_value));
+    }
+
+    T& operator*() { return *ptr(); }
+    const T& operator*() const { return *ptr(); }
+
+    T* operator->() { return ptr(); }
+    const T* operator->() const { return ptr(); }
+
+    void reset() noexcept { destroy(); }
+};
+
+template<typename T>
+optional<typename std::decay<T>::type> make_optional(T&& value) {
+    return optional<typename std::decay<T>::type>(std::forward<T>(value));
+}
+
+} // namespace std
+
+#endif // TRANSITX_OPTIONAL_COMPAT_HPP

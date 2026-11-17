@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+.env
+*.o
+*.exe
+*.obj
+.vscode/
+.idea/
+CMakeFiles/
+cmake-build*/
+*.log

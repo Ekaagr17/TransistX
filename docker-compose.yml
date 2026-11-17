@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${DB_NAME:-transitx_db}
+      POSTGRES_USER: ${DB_USER:-transitx}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_in_production}
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: pg_isready -U ${DB_USER:-transitx}
+      interval: 5s
+      retries: 5
+  backend:
+    build: ./backend
+    ports: ['8080:8080']
+    env_file: .env
+    depends_on:
+      postgres: { condition: service_healthy }
+  frontend:
+    build: ./frontend
+    ports: ['5173:5173']
+    depends_on: [backend]
+  driver-app:
+    build: ./driver-app
+    ports: ['5174:5174']
+    depends_on: [backend]
+volumes:
+  pgdata:
