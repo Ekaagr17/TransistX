@@ -13,6 +13,7 @@ export interface Bus {
   capacity: number | null;
   status: 'active' | 'inactive';
   created_at: string;
+  route_id?: number;
 }
 
 export interface Route {
@@ -95,6 +96,14 @@ export interface Favorite {
   route?: Route;
 }
 
+export interface FavoriteBus {
+  id: number;
+  bus_id: number;
+  bus_number: string;
+  route_name?: string;
+  added_at: string;
+}
+
 export interface ServiceAlert {
   id: number;
   route_id: number | null;
@@ -134,4 +143,59 @@ export interface ApiResponse<T> {
 export interface WebSocketMessage {
   type: 'location_update' | 'bus_status' | 'alert';
   data: BusLocation | Bus | ServiceAlert;
+}
+
+// ==========================================
+// Journey Planner & Time Engine Types
+// ==========================================
+
+export interface StopTiming {
+  stop_id: number;
+  stop_name: string;
+  stop_order: number;
+  latitude: number;
+  longitude: number;
+  scheduled_time: string;
+  estimated_time: string;
+  eta_minutes_from_now: number;
+  is_passed: boolean;
+  distance_from_prev_km: number;
+}
+
+export interface JourneyCandidate {
+  bus_id: number;
+  bus_number: string;
+  registration_number: string;
+  capacity: number;
+  status: 'active' | 'inactive';
+  route_id: number;
+  route_code: string;
+  route_name: string;
+  start_point: string;
+  end_point: string;
+  boarding_stop: Stop;
+  destination_stop: Stop;
+  boarding_eta_minutes: number;
+  arrival_time_at_boarding: string;
+  destination_eta_minutes: number;
+  arrival_time_at_destination: string;
+  total_trip_minutes: number;
+  walking_distance_meters: number;
+  walking_duration_minutes: number;
+  is_best_pick: boolean;
+  best_pick_reason?: string;
+  stop_timings: StopTiming[];
+  current_speed_kmh: number;
+  current_location: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface JourneyPlanRequest {
+  start_stop_id: number;
+  end_stop_id: number;
+  passenger_lat?: number;
+  passenger_lng?: number;
+  preferred_bus_id?: number;
 }

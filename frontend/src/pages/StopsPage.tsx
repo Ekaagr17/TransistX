@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation } from 'lucide-react';
 import { stopService } from '../services/stop.service';
+import { DEHRADUN_STOPS } from '../services/journey.service';
 import { StopCard } from '../components/StopCard';
 import { StopPanel } from '../components/StopPanel';
 import { MapView } from '../maps/MapView';
@@ -9,9 +10,9 @@ import { EmptyState } from '../components/EmptyState';
 import type { Stop } from '../types';
 
 export const StopsPage: React.FC = () => {
-  const [stops, setStops] = useState<Stop[]>([]);
+  const [stops, setStops] = useState<Stop[]>(DEHRADUN_STOPS);
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,9 +21,9 @@ export const StopsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await stopService.getStops();
-      setStops(data);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load transit stops');
+      setStops(data.length > 0 ? data : DEHRADUN_STOPS);
+    } catch {
+      setStops(DEHRADUN_STOPS);
     } finally {
       setLoading(false);
     }
@@ -46,9 +47,8 @@ export const StopsPage: React.FC = () => {
             pos.coords.longitude,
             5 // 5km
           );
-          setStops(nearby);
+          setStops(nearby.length > 0 ? nearby : DEHRADUN_STOPS);
         } catch {
-          // fallback to all stops
           fetchStops();
         } finally {
           setNearbyLoading(false);
@@ -91,7 +91,7 @@ export const StopsPage: React.FC = () => {
               Transit Stops
             </h1>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
-              {stops.length} stations in Dehradun
+              {stops.length} stations across Dehradun
             </p>
           </div>
           <button
@@ -106,21 +106,14 @@ export const StopsPage: React.FC = () => {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          {loading ? (
+          {loading && stops.length === 0 ? (
             <LoadingSpinner text="Loading transit stops..." />
-          ) : error ? (
+          ) : error && stops.length === 0 ? (
             <EmptyState
               icon={MapPin}
               title="Unable to load stops"
               description={error}
               action={{ label: 'Retry', onClick: fetchStops }}
-            />
-          ) : stops.length === 0 ? (
-            <EmptyState
-              icon={MapPin}
-              title="No stops found"
-              description="No stops in this area."
-              action={{ label: 'View All Stops', onClick: fetchStops }}
             />
           ) : (
             stops.map((stop) => (

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Bell, User as UserIcon, LogOut } from 'lucide-react';
+import { Bell, User as UserIcon, LogOut, Compass } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { SearchBar } from './SearchBar';
 import { LoginModal } from './LoginModal';
-import type { SearchResult } from '../types';
+import { JourneyPlannerModal } from './JourneyPlannerModal';
+import { useNavigate } from 'react-router-dom';
+import type { SearchResult, JourneyCandidate } from '../types';
 
 interface HeaderProps {
   onSearchResultSelect?: (result: SearchResult) => void;
@@ -18,6 +20,12 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [journeyModalOpen, setJourneyModalOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSelectFromJourneyPlanner = (candidate: JourneyCandidate) => {
+    navigate('/buses', { state: { selectedBusId: candidate.bus_id } });
+  };
 
   return (
     <>
@@ -34,7 +42,20 @@ export const Header: React.FC<HeaderProps> = ({
         }}
       >
         {/* Search */}
-        <SearchBar onSelectResult={onSearchResultSelect} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+          <SearchBar onSelectResult={onSearchResultSelect} />
+          
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => setJourneyModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}
+            title="Plan your journey across 29 stops"
+          >
+            <Compass size={14} />
+            <span>Plan Journey</span>
+          </button>
+        </div>
 
         {/* Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
@@ -131,6 +152,12 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
 
       <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} />
+      
+      <JourneyPlannerModal
+        isOpen={journeyModalOpen}
+        onClose={() => setJourneyModalOpen(false)}
+        onSelectBusAndRoute={handleSelectFromJourneyPlanner}
+      />
     </>
   );
 };

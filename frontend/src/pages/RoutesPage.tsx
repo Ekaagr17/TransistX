@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Route as RouteIcon } from 'lucide-react';
 import { routeService } from '../services/route.service';
 import { stopService } from '../services/stop.service';
+import { DEHRADUN_ROUTES, DEHRADUN_STOPS } from '../services/journey.service';
 import { RouteCard } from '../components/RouteCard';
 import { RoutePanel } from '../components/RoutePanel';
 import { MapView } from '../maps/MapView';
@@ -11,11 +12,11 @@ import { useFavorites } from '../hooks/useFavorites';
 import type { Route, RouteStop, Stop } from '../types';
 
 export const RoutesPage: React.FC = () => {
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [stops, setStops] = useState<Stop[]>([]);
-  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
+  const [routes, setRoutes] = useState<Route[]>(DEHRADUN_ROUTES);
+  const [stops, setStops] = useState<Stop[]>(DEHRADUN_STOPS);
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(1);
   const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -25,18 +26,21 @@ export const RoutesPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const [rData, sData] = await Promise.all([
-        routeService.getRoutes(),
-        stopService.getStops(),
+        routeService.getRoutes().catch(() => DEHRADUN_ROUTES),
+        stopService.getStops().catch(() => DEHRADUN_STOPS),
       ]);
-      setRoutes(rData);
-      setStops(sData);
+      setRoutes(rData.length > 0 ? rData : DEHRADUN_ROUTES);
+      setStops(sData.length > 0 ? sData : DEHRADUN_STOPS);
 
-      // Select first route by default if available
       if (rData.length > 0) {
         handleSelectRoute(rData[0].id);
+      } else {
+        handleSelectRoute(DEHRADUN_ROUTES[0].id);
       }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load transit routes');
+    } catch {
+      setRoutes(DEHRADUN_ROUTES);
+      setStops(DEHRADUN_STOPS);
+      handleSelectRoute(DEHRADUN_ROUTES[0].id);
     } finally {
       setLoading(false);
     }
@@ -50,9 +54,29 @@ export const RoutesPage: React.FC = () => {
     setSelectedRouteId(routeId);
     try {
       const stopsData = await routeService.getRouteStops(routeId);
-      setRouteStops(stopsData);
+      if (stopsData && stopsData.length > 0) {
+        setRouteStops(stopsData);
+        return;
+      }
     } catch {
-      setRouteStops([]);
+      // quiet fallback
+    }
+
+    // Local fallback
+    const local = DEHRADUN_ROUTES.find((r) => r.id === routeId);
+    if (local) {
+      const stopsArr: RouteStop[] = local.stopIds.map((sid, idx) => {
+        const found = DEHRADUN_STOPS.find((s) => s.id === sid);
+        return {
+          id: sid,
+          route_id: routeId,
+          stop_id: sid,
+          stop_order: idx + 1,
+          estimated_stop_duration: 30,
+          stop: found,
+        };
+      });
+      setRouteStops(stopsArr);
     }
   };
 
@@ -77,7 +101,7 @@ export const RoutesPage: React.FC = () => {
             Transit Routes
           </h1>
           <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
-            {routes.length} network lines configured
+            {routes.length} network lines configured in Dehradun
           </p>
         </div>
 
@@ -90,12 +114,6 @@ export const RoutesPage: React.FC = () => {
               title="Unable to load routes"
               description={error}
               action={{ label: 'Retry', onClick: fetchRoutes }}
-            />
-          ) : routes.length === 0 ? (
-            <EmptyState
-              icon={RouteIcon}
-              title="No routes found"
-              description="No public transit routes available."
             />
           ) : (
             routes.map((route) => (
